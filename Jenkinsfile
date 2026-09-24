@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // Remplacez par votre identifiant Docker Hub
-        DOCKER_USER     = 'ratsimba4'
+        DOCKER_USER     = 'ratsimba14'
         IMAGE_NAME      = 'html-app'
         REGISTRY        = 'docker.io'
         // Remplacez par l'IP de votre VM Master Kubernetes
