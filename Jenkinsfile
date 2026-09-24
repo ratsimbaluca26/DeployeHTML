@@ -5,7 +5,7 @@ pipeline {
         DOCKER_USER     = 'ratsimba14'
         IMAGE_NAME      = 'html-app'
         // Votre ID d'identifiants exact dans Jenkins
-        CREDENTIALS_ID  = 'd945e418-1ac8-49dc-a539-27174d966816'
+        CREDENTIALS_ID  = '714e3aa4-04ce-4f28-bbd8-f0b955e811f7'
         K8S_API_SERVER  = 'https://192.168.56.10:6443'
     }
 
