@@ -4,7 +4,6 @@ pipeline {
     environment {
         DOCKER_USER     = 'ratsimba14'
         IMAGE_NAME      = 'html-app'
-        // Votre ID d'identifiants exact dans Jenkins
         CREDENTIALS_ID  = '714e3aa4-04ce-4f28-bbd8-f0b955e811f7'
         K8S_API_SERVER  = 'https://192.168.56.10:6443'
     }
@@ -35,13 +34,13 @@ pipeline {
         stage('4. Deploy to Kubernetes') {
             steps {
                 withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
-                    sh '''
+                    sh """
                         echo "=== 1. Préparation des manifests ==="
                         sed -i "s/__DOCKERHUB_USER__/${DOCKER_USER}/g" k8s/deployment.yaml
                         sed -i "s/__BUILD_NUMBER__/${BUILD_NUMBER}/g" k8s/deployment.yaml
 
                         echo "=== 2. Application du Deployment via Docker (kubectl) ==="
-                        docker run --rm -v ${WORKSPACE}:/workspace -w /workspace \
+                        docker run --rm -v "${WORKSPACE}":/workspace -w /workspace \
                             bitnami/kubectl:latest \
                             --server=${K8S_API_SERVER} \
                             --token=${K8S_TOKEN} \
@@ -49,13 +48,13 @@ pipeline {
                             apply -f k8s/deployment.yaml
 
                         echo "=== 3. Application du Service via Docker (kubectl) ==="
-                        docker run --rm -v ${WORKSPACE}:/workspace -w /workspace \
+                        docker run --rm -v "${WORKSPACE}":/workspace -w /workspace \
                             bitnami/kubectl:latest \
                             --server=${K8S_API_SERVER} \
                             --token=${K8S_TOKEN} \
                             --insecure-skip-tls-verify=true \
                             apply -f k8s/service.yaml
-                    '''
+                    """
                 }
             }
         }
