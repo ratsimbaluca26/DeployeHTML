@@ -2,11 +2,10 @@ pipeline {
     agent any
 
     environment {
-        // Remplacez par votre identifiant Docker Hub
         DOCKER_USER     = 'ratsimba14'
         IMAGE_NAME      = 'html-app'
-        REGISTRY        = 'docker.io'
-        // Remplacez par l'IP de votre VM Master Kubernetes
+        // Votre ID d'identifiants exact dans Jenkins
+        CREDENTIALS_ID  = 'd945e418-1ac8-49dc-a539-27174d966816'
         K8S_API_SERVER  = 'https://192.168.56.10:6443'
     }
 
@@ -19,20 +18,16 @@ pipeline {
 
         stage('2. Build Docker Image') {
             steps {
-                script {
-                    dockerImage = docker.build("${DOCKER_USER}/${IMAGE_NAME}:${BUILD_NUMBER}")
-                    dockerLatest = docker.build("${DOCKER_USER}/${IMAGE_NAME}:latest")
-                }
+                sh "docker build -t ${DOCKER_USER}/${IMAGE_NAME}:${BUILD_NUMBER} -t ${DOCKER_USER}/${IMAGE_NAME}:latest ."
             }
         }
 
         stage('3. Push to Docker Hub') {
             steps {
-                script {
-                    docker.withRegistry("https://${REGISTRY}", 'jenkins-token') {
-                        dockerImage.push("${BUILD_NUMBER}")
-                        dockerLatest.push("latest")
-                    }
+                withCredentials([usernamePassword(credentialsId: "${CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER_ID', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USER_ID} --password-stdin"
+                    sh "docker push ${DOCKER_USER}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                    sh "docker push ${DOCKER_USER}/${IMAGE_NAME}:latest"
                 }
             }
         }
