@@ -33,31 +33,28 @@ pipeline {
             }
         }
 
-        stage('4. Deploy to Kubernetes') {
-            steps {
-                sh '''
-                    echo "=== 1. Préparation des manifests ==="
-                    sed -i "s/__DOCKERHUB_USER__/${DOCKER_USER}/g" k8s/deployment.yaml
-                    sed -i "s/__BUILD_NUMBER__/${BUILD_NUMBER}/g" k8s/deployment.yaml
+        stage('Deploy to Kubernetes') {
+    steps {
+        sh '''
+            # 1. Remplacement des variables
+            sed -i "s/__DOCKERHUB_USER__/ratsimba14/g" k8s/deployment.yaml
+            sed -i "s/__BUILD_NUMBER__/${BUILD_NUMBER}/g" k8s/deployment.yaml
 
-                    echo "=== 2. Application du Deployment via Docker (kubectl stdin) ==="
-                    cat k8s/deployment.yaml | docker run --rm -i \
-                        bitnami/kubectl:latest \
-                        --server=${K8S_API_SERVER} \
-                        --token=${K8S_TOKEN} \
-                        --insecure-skip-tls-verify=true \
-                        apply -f -
+            # 2. Application sur K8s avec le volume monté (-v $PWD:/workspace -w /workspace)
+            docker run --rm -v $PWD:/workspace -w /workspace bitnami/kubectl:latest \
+              --server=https://192.168.56.10:6443 \
+              --token=${K8S_TOKEN} \
+              --insecure-skip-tls-verify=true \
+              apply -f k8s/deployment.yaml
 
-                    echo "=== 3. Application du Service via Docker (kubectl stdin) ==="
-                    cat k8s/service.yaml | docker run --rm -i \
-                        bitnami/kubectl:latest \
-                        --server=${K8S_API_SERVER} \
-                        --token=${K8S_TOKEN} \
-                        --insecure-skip-tls-verify=true \
-                        apply -f -
-                '''
-            }
-        }
+            docker run --rm -v $PWD:/workspace -w /workspace bitnami/kubectl:latest \
+              --server=https://192.168.56.10:6443 \
+              --token=${K8S_TOKEN} \
+              --insecure-skip-tls-verify=true \
+              apply -f k8s/service.yaml
+        '''
+    }
+}
     }
 
     post {
