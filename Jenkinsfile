@@ -29,7 +29,7 @@ pipeline {
         stage('3. Push to Docker Hub') {
             steps {
                 script {
-                    docker.withRegistry("https://${REGISTRY}", 'docker-hub-credentials') {
+                    docker.withRegistry("https://${REGISTRY}", 'jenkins-token') {
                         dockerImage.push("${BUILD_NUMBER}")
                         dockerLatest.push("latest")
                     }
