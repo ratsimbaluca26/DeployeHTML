@@ -36,20 +36,33 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
                     sh '''
-                        # Injection des variables dans le manifeste Deployment
+                        echo "=== 1. Préparation des manifests ==="
                         sed -i "s/__DOCKERHUB_USER__/${DOCKER_USER}/g" k8s/deployment.yaml
                         sed -i "s/__BUILD_NUMBER__/${BUILD_NUMBER}/g" k8s/deployment.yaml
 
-                        # Application du Deployment et du Service sur le Master K8s
+                        echo "=== 2. Application du Deployment ==="
                         kubectl --server=${K8S_API_SERVER} \
                                 --token=${K8S_TOKEN} \
                                 --insecure-skip-tls-verify=true \
                                 apply -f k8s/deployment.yaml
 
+                        echo "=== 3. Application du Service ==="
                         kubectl --server=${K8S_API_SERVER} \
                                 --token=${K8S_TOKEN} \
                                 --insecure-skip-tls-verify=true \
                                 apply -f k8s/service.yaml
+
+                        echo "=== 4. Vérification de l'état des Pods ==="
+                        kubectl --server=${K8S_API_SERVER} \
+                                --token=${K8S_TOKEN} \
+                                --insecure-skip-tls-verify=true \
+                                get pods -o wide || true
+
+                        echo "=== 5. Diagnostic détaillé en cas d'erreur (décrire les derniers événements) ==="
+                        kubectl --server=${K8S_API_SERVER} \
+                                --token=${K8S_TOKEN} \
+                                --insecure-skip-tls-verify=true \
+                                describe pods || true
                     '''
                 }
             }
