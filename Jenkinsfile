@@ -39,7 +39,7 @@ pipeline {
                     sed -i "s/__DOCKERHUB_USER__/${DOCKER_USER}/g" k8s/deployment.yaml
                     sed -i "s/__BUILD_NUMBER__/${BUILD_NUMBER}/g" k8s/deployment.yaml
 
-                    # 2. Application du Deployment via le flux stdin (cat + apply -f -)
+                    # 2. Application du Deployment via le flux stdin
                     cat k8s/deployment.yaml | docker run --rm -i bitnami/kubectl:latest \
                       --server=${K8S_API_SERVER} \
                       --token=${K8S_TOKEN} \
@@ -52,6 +52,26 @@ pipeline {
                       --token=${K8S_TOKEN} \
                       --insecure-skip-tls-verify=true \
                       apply -f -
+                '''
+            }
+        }
+
+        stage('5. Verify Deployment') {
+            steps {
+                sh '''
+                    # Vérification du statut du déploiement
+                    docker run --rm -i bitnami/kubectl:latest \
+                      --server=${K8S_API_SERVER} \
+                      --token=${K8S_TOKEN} \
+                      --insecure-skip-tls-verify=true \
+                      rollout status deployment/html-app --timeout=60s
+
+                    # Affichage des Pods actifs
+                    docker run --rm -i bitnami/kubectl:latest \
+                      --server=${K8S_API_SERVER} \
+                      --token=${K8S_TOKEN} \
+                      --insecure-skip-tls-verify=true \
+                      get pods -l app=html-app
                 '''
             }
         }
