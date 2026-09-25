@@ -18,5 +18,6 @@ spec:
       containers:
       - name: html-container
         image: __DOCKERHUB_USER__/html-app:__BUILD_NUMBER__
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
