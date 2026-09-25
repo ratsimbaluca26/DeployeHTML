@@ -2,84 +2,56 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_USER     = 'ratsimba14'
-        IMAGE_NAME      = 'html-app'
-        CREDENTIALS_ID  = '714e3aa4-04ce-4f28-bbd8-f0b955e811f7'
-        K8S_API_SERVER  = 'https://192.168.56.10:6443'
-        K8S_TOKEN       = credentials('k8s-token')
+        DOCKERHUB_USER = 'ratsimba14'
+        KUBECONFIG_SERVER = 'https://192.168.56.10:6443'
     }
 
     stages {
-        stage('1. Checkout Code') {
+        stage('Build & Push Docker Image') {
             steps {
-                checkout scm
-            }
-        }
-
-        stage('2. Build Docker Image') {
-            steps {
-                sh 'docker build -t ${DOCKER_USER}/${IMAGE_NAME}:${BUILD_NUMBER} -t ${DOCKER_USER}/${IMAGE_NAME}:latest .'
-            }
-        }
-
-        stage('3. Push to Docker Hub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: "${CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER_ID', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh 'echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USER_ID} --password-stdin'
-                    sh 'docker push ${DOCKER_USER}/${IMAGE_NAME}:${BUILD_NUMBER}'
-                    sh 'docker push ${DOCKER_USER}/${IMAGE_NAME}:latest'
+                script {
+                    // Construction de l'image avec le numéro de build Jenkins ($BUILD_NUMBER)
+                    sh "docker build -t ${DOCKERHUB_USER}/html-app:${BUILD_NUMBER} ."
+                    
+                    // Authentification et push sur Docker Hub
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                        sh "echo \$PASS | docker login -u \$USER --password-stdin"
+                        sh "docker push ${DOCKERHUB_USER}/html-app:${BUILD_NUMBER}"
+                    }
                 }
             }
         }
 
-        stage('4. Deploy to Kubernetes') {
+        stage('Deploy to Kubernetes') {
             steps {
-                sh '''
-                    # 1. Remplacement dynamique des variables dans deployment.yaml
-                    sed -i "s/__DOCKERHUB_USER__/${DOCKER_USER}/g" k8s/deployment.yaml
-                    sed -i "s/__BUILD_NUMBER__/${BUILD_NUMBER}/g" k8s/deployment.yaml
+                script {
+                    // Remplacement dynamique des placeholders dans le fichier YAML
+                    sh """
+                        sed -i 's/__DOCKERHUB_USER__/${DOCKERHUB_USER}/g' k8s/deployment.yaml
+                        sed -i 's/__BUILD_NUMBER__/${BUILD_NUMBER}/g' k8s/deployment.yaml
+                    """
 
-                    # 2. Application du Deployment via le flux stdin
-                    cat k8s/deployment.yaml | docker run --rm -i bitnami/kubectl:latest \
-                      --server=${K8S_API_SERVER} \
-                      --token=${K8S_TOKEN} \
-                      --insecure-skip-tls-verify=true \
-                      apply -f -
-
-                    # 3. Application du Service via le flux stdin
-                    cat k8s/service.yaml | docker run --rm -i bitnami/kubectl:latest \
-                      --server=${K8S_API_SERVER} \
-                      --token=${K8S_TOKEN} \
-                      --insecure-skip-tls-verify=true \
-                      apply -f -
-                '''
-            }
-        }
-
-        stage('5. Verify Deployment') {
-            steps {
-                sh '''
-                    # Vérification du statut du déploiement
-                    docker run --rm -i bitnami/kubectl:latest \
-                      --server=${K8S_API_SERVER} \
-                      --token=${K8S_TOKEN} \
-                      --insecure-skip-tls-verify=true \
-                      rollout status deployment/html-app --timeout=60s
-
-                    # Affichage des Pods actifs
-                    docker run --rm -i bitnami/kubectl:latest \
-                      --server=${K8S_API_SERVER} \
-                      --token=${K8S_TOKEN} \
-                      --insecure-skip-tls-verify=true \
-                      get pods -l app=html-app
-                '''
+                    // Application du fichier manifest mis à jour
+                    withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
+                        sh """
+                            docker run --rm -i \
+                              -v \$(pwd)/k8s:/k8s \
+                              bitnami/kubectl:latest \
+                              --server=${KUBECONFIG_SERVER} \
+                              --token=\${K8S_TOKEN} \
+                              --insecure-skip-tls-verify=true \
+                              apply -f /k8s/deployment.yaml
+                        """
+                    }
+                }
             }
         }
     }
 
     post {
         always {
-            sh 'docker image prune -f'
+            // Nettoyage des images locales générées
+            sh "docker rmi ${DOCKERHUB_USER}/html-app:${BUILD_NUMBER} || true"
         }
     }
 }
