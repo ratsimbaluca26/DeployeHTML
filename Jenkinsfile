@@ -6,7 +6,6 @@ pipeline {
         IMAGE_NAME      = 'html-app'
         CREDENTIALS_ID  = '714e3aa4-04ce-4f28-bbd8-f0b955e811f7'
         K8S_API_SERVER  = 'https://192.168.56.10:6443'
-        // Injection sécurisée du token Kubernetes dans l'environnement
         K8S_TOKEN       = credentials('k8s-token')
     }
 
@@ -33,33 +32,34 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('4. Deploy to Kubernetes') {
             steps {
                 sh '''
-                    # 1. Remplacement des variables dans le fichier YAML
-                    sed -i "s/__DOCKERHUB_USER__/ratsimba14/g" k8s/deployment.yaml
+                    # 1. Remplacement dynamique des variables dans deployment.yaml
+                    sed -i "s/__DOCKERHUB_USER__/${DOCKER_USER}/g" k8s/deployment.yaml
                     sed -i "s/__BUILD_NUMBER__/${BUILD_NUMBER}/g" k8s/deployment.yaml
 
-                    # 2. Application du Deployment via l'entrée standard (-i et apply -f -)
+                    # 2. Application du Deployment via le flux stdin (cat + apply -f -)
                     cat k8s/deployment.yaml | docker run --rm -i bitnami/kubectl:latest \
-                    --server=https://192.168.56.10:6443 \
-                    --token=${K8S_TOKEN} \
-                    --insecure-skip-tls-verify=true \
-                    apply -f -
+                      --server=${K8S_API_SERVER} \
+                      --token=${K8S_TOKEN} \
+                      --insecure-skip-tls-verify=true \
+                      apply -f -
 
-                    # 3. Application du Service via l'entrée standard
+                    # 3. Application du Service via le flux stdin
                     cat k8s/service.yaml | docker run --rm -i bitnami/kubectl:latest \
-                    --server=https://192.168.56.10:6443 \
-                    --token=${K8S_TOKEN} \
-                    --insecure-skip-tls-verify=true \
-                    apply -f -
+                      --server=${K8S_API_SERVER} \
+                      --token=${K8S_TOKEN} \
+                      --insecure-skip-tls-verify=true \
+                      apply -f -
                 '''
             }
-}
+        }
+    }
 
     post {
         always {
             sh 'docker image prune -f'
         }
     }
-    
+}
