@@ -36,26 +36,26 @@ pipeline {
         stage('Deploy to Kubernetes') {
     steps {
         sh '''
-            # 1. Remplacement des variables
+            # 1. Remplacement des variables dans le fichier YAML
             sed -i "s/__DOCKERHUB_USER__/ratsimba14/g" k8s/deployment.yaml
             sed -i "s/__BUILD_NUMBER__/${BUILD_NUMBER}/g" k8s/deployment.yaml
 
-            # 2. Application sur K8s avec le volume monté (-v $PWD:/workspace -w /workspace)
-            docker run --rm -v $PWD:/workspace -w /workspace bitnami/kubectl:latest \
+            # 2. Application du Deployment via l'entrée standard (-i et apply -f -)
+            cat k8s/deployment.yaml | docker run --rm -i bitnami/kubectl:latest \
               --server=https://192.168.56.10:6443 \
               --token=${K8S_TOKEN} \
               --insecure-skip-tls-verify=true \
-              apply -f k8s/deployment.yaml
+              apply -f -
 
-            docker run --rm -v $PWD:/workspace -w /workspace bitnami/kubectl:latest \
+            # 3. Application du Service via l'entrée standard
+            cat k8s/service.yaml | docker run --rm -i bitnami/kubectl:latest \
               --server=https://192.168.56.10:6443 \
               --token=${K8S_TOKEN} \
               --insecure-skip-tls-verify=true \
-              apply -f k8s/service.yaml
+              apply -f -
         '''
     }
 }
-    }
 
     post {
         always {
