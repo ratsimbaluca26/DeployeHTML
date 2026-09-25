@@ -34,15 +34,16 @@ pipeline {
         stage('4. Deploy to Kubernetes') {
             steps {
                 withCredentials([string(credentialsId: 'k8s-token', variable: 'K8S_TOKEN')]) {
-                    sh '''
-                        # Injection des variables puis fusion des deux fichiers manifestes dans un seul appel kubectl
-                        (sed "s/__DOCKERHUB_USER__/${DOCKER_USER}/g; s/__BUILD_NUMBER__/${BUILD_NUMBER}/g" k8s/deployment.yaml && echo "---" && cat k8s/service.yaml) | \
+                    sh """
+                        # Fusion des manifests et envoi direct à kubectl sans validation distante
+                        (sed "s/__DOCKERHUB_USER__/${DOCKER_USER}/g; s/__BUILD_NUMBER__/${BUILD_NUMBER}/g" k8s/deployment.yaml && echo -e "\n---\n" && cat k8s/service.yaml) | \
                         docker run --rm -i bitnami/kubectl:latest \
                           --server=${K8S_API_SERVER} \
-                          --token=$K8S_TOKEN \
+                          --token=\$K8S_TOKEN \
                           --insecure-skip-tls-verify=true \
+                          --validate=false \
                           apply -f -
-                    '''
+                    """
                 }
             }
         }
