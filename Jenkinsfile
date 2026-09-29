@@ -45,7 +45,7 @@ pipeline {
                           --token=\$K8S_TOKEN \
                           --insecure-skip-tls-verify=true \
                           --request-timeout=120s \
-                          apply -f -
+                          apply --validate=false -f -
                     """
                 }
             }
